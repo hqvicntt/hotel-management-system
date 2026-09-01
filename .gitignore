@@ -1,4 +1,25 @@
-# Global
+# ==========================================
+# FILE .GITIGNORE CHUẨN CHO MONO-REPO (ROOT)
+# ==========================================
+
+# 1. Dependencies (Chỉ chặn node_modules, KHÔNG chặn package-lock.json)
+**/node_modules/
+
+# 2. Environment variables (Chặn tất cả file .env bảo mật ở mọi ngóc ngách)
+**/.env
+**/.env.*
+
+# 3. Production Build (Chặn các file sinh ra khi biên dịch ReactJS)
+client/build/
+client/dist/
+
+# 4. Logs (Chặn các file ghi nhật ký lỗi hệ thống)
+**/logs/
+**/*.log
+**/npm-debug.log*
+
+# 5. OS & IDE System Files (Chặn file rác của máy tính và cấu hình riêng của VS Code)
 .DS_Store
 Thumbs.db
-*.log
+**/.vscode/
+**/.idea/
