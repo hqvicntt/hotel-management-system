@@ -43,14 +43,13 @@ const userSchema = new mongoose.Schema({ // Định nghĩa Khung Dữ liệu (us
 });
 
 // Đây là một hàm đánh chặn (Hook). Trước khi dữ liệu người dùng được chính thức lưu (save) xuống MongoDB, Mongoose sẽ tự động nhảy vào đoạn code này để xử lý mật khẩu
-userSchema.pre('save', async function(next) {
+userSchema.pre('save', async function() {
   if (!this.isModified('password')) {
-    next(); // Nếu người dùng chỉ cập nhật số điện thoại hay tên (mật khẩu không đổi), hàm này sẽ bỏ qua và chạy tiếp (next())
+    return; // Nếu người dùng chỉ cập nhật số điện thoại hay tên (mật khẩu không đổi), hàm này sẽ bỏ qua và chạy tiếp (next())
   }
   
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
-  next();
 });
 
 // Hàm này nhận vào mật khẩu do người dùng gõ khi đăng nhập (enteredPassword), dùng thư viện bcrypt để giải mã và đối chiếu với mật khẩu đã băm trong DB (this.password). Nó sẽ trả về true nếu khớp và false nếu sai

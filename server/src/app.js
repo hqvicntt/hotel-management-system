@@ -42,7 +42,7 @@ app.get('/api/health', (req, res) => {
 
 // Đây là nơi tập trung đầu mối dẫn đường. Khi bạn viết xong các tính năng thực tế, bạn sẽ mở comment ra để dẫn hướng: Ví dụ cứ gọi đường dẫn bắt đầu bằng /api/rooms thì NodeJS sẽ chuyển tiếp gói tin vào file roomRoutes.js để xử lý sâu hơn
 // API Routes (will be added later)
-// app.use('/api/auth', require('./routes/auth/authRoutes'));
+app.use('/api/auth', require('./routes/auth/authRoutes'));
 // app.use('/api/rooms', require('./routes/room/roomRoutes'));
 // app.use('/api/bookings', require('./routes/booking/bookingRoutes'));
 // app.use('/api/users', require('./routes/user/userRoutes'));
