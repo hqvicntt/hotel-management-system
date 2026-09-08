@@ -118,3 +118,44 @@ body {
   border-top-color: #fff;
   animation: spin 0.8s linear infinite;
 }
+
+/* ============================================
+   ROOM CARD HOVER EFFECTS
+   ============================================ */
+
+.hover-shadow {
+  transition: all 0.3s ease-in-out;
+}
+
+.hover-shadow:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15) !important;
+}
+
+.transition-all {
+  transition: all 0.3s ease-in-out;
+}
+
+/* ============================================
+   GRADIENT BACKGROUND FOR HEADER
+   ============================================ */
+
+.bg-gradient-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+}
+
+/* ============================================
+   STICKY NAVBAR FIX
+   ============================================ */
+
+.sticky-top {
+  z-index: 1030;
+}
+
+/* ============================================
+   IMAGE PLACEHOLDER
+   ============================================ */
+
+.card-img-top {
+  background-color: #f8f9fa;
+}
