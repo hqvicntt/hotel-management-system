@@ -7,6 +7,7 @@
  * 3. Bọc các trang cần bảo vệ trong ProtectedRoute
  * 4. Điều hướng thông minh: nếu đã login, không cho vào login/register
  */
+
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 
 // ============================================
@@ -19,6 +20,7 @@ import RegisterPage from './pages/auth/RegisterPage'
 
 // Main Pages
 import HomePage from './pages/HomePage'
+import BookingHistoryPage from './pages/BookingHistoryPage'
 
 // ============================================
 // 2. IMPORT COMPONENTS
@@ -96,7 +98,17 @@ function App() {
             } 
           />
           
-          {/* Fallback 404 - Chuyển về login */}
+          {/* Lịch sử đặt phòng - THÊM MỚI */}
+          <Route 
+            path="/my-bookings" 
+            element={
+              <ProtectedRoute>
+                <BookingHistoryPage />
+              </ProtectedRoute>
+            } 
+          />
+          
+          {/* Fallback 404 - Chuyển về trang chủ */}
           <Route 
             path="*" 
             element={<Navigate to="/" replace />} 

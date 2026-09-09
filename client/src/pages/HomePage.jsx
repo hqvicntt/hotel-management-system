@@ -10,7 +10,7 @@
  */
 
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { getAllRooms } from '@services/roomService'
 import RoomCard from '@components/room/RoomCard'
 
@@ -201,6 +201,12 @@ const HomePage = () => {
               <i className={`bi ${roleInfo.icon} me-1`}></i>
               {greeting}, {user.name}
             </span>
+
+            <Link to="/my-bookings" className="btn btn-outline-light btn-sm">
+              <i className="bi bi-clock-history me-1"></i>
+              Lịch sử đặt
+            </Link>
+
             <button 
               className="btn btn-outline-light btn-sm" 
               onClick={handleLogout}
@@ -244,6 +250,24 @@ const HomePage = () => {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        <div className="row mb-4 g-3">
+          <div className="col-md-4">
+            <Link to="/my-bookings" className="text-decoration-none">
+              <div className="card shadow-sm border-0 h-100 hover-shadow transition-all">
+                <div className="card-body text-center p-4">
+                  <div className="bg-info bg-opacity-10 rounded-circle p-3 d-inline-block mb-3">
+                    <i className="bi bi-clock-history text-info fs-1"></i>
+                  </div>
+                  <h5 className="card-title fw-bold text-dark">Lịch sử đặt phòng</h5>
+                  <p className="card-text text-muted small mb-0">
+                    Xem lại các đơn đặt phòng của bạn
+                  </p>
+                </div>
+              </div>
+            </Link>
           </div>
         </div>
 
