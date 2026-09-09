@@ -1,40 +1,157 @@
+/**
+ * Booking.js - Model quản lý đơn đặt phòng
+ * 
+ * Cấu trúc dữ liệu:
+ * - bookingCode: Mã đặt phòng tự động sinh (định dạng: BK-20260908-XXXX)
+ * - customerId: ID của khách hàng (ref: User)
+ * - roomId: ID của phòng (ref: Room)
+ * - checkInDate: Ngày nhận phòng
+ * - checkOutDate: Ngày trả phòng
+ * - totalAmount: Tổng tiền (tự động tính)
+ * - status: Trạng thái đơn đặt
+ * - paymentStatus: Trạng thái thanh toán
+ * - guestCount: Số lượng khách
+ * - specialRequests: Yêu cầu đặc biệt
+ * - cancelledAt: Thời gian hủy
+ * - cancelledReason: Lý do hủy
+ * - checkedInAt: Thời gian nhận phòng thực tế
+ * - checkedOutAt: Thời gian trả phòng thực tế
+ */
+
 const mongoose = require('mongoose');
 
 const bookingSchema = new mongoose.Schema({
-  // Kỹ thuật Liên kết Dữ liệu (tạo mối liên kết giữa các Collection trong MongoDB (NoSQL) giống như Khóa ngoại (Foreign Key) của SQL) duoc ap dung o 2 truong: customerId va roomId
-  customerId: {
-    type: mongoose.Schema.Types.ObjectId, // Khai báo rằng trường này không lưu chuỗi chữ bình thường, mà sẽ lưu một đoạn mã ID đặc trưng (chuỗi 24 ký tự) do MongoDB tự sinh ra cho mỗi User
-    ref: 'User', // Ra lệnh cho Mongoose hiểu rằng: "Cái ID này chính là chìa khóa để tìm sang bảng User đấy!". Sau này khi làm tính năng hiển thị đơn đặt phòng, nhờ dòng này mà ta có thể dùng lệnh .populate() để tự động bốc tên, email, số điện thoại của khách hàng ra một cách dễ dàng
-    required: [true, 'Customer ID is required']
+  // ==========================================
+  // 1. MÃ ĐẶT PHÒNG (Tự động sinh)
+  // ==========================================
+  
+  bookingCode: {
+    type: String,
+    unique: true,
+    required: true,
+    trim: true,
+    uppercase: true
   },
+
+  // ==========================================
+  // 2. LIÊN KẾT DỮ LIỆU
+  // ==========================================
+  
+  customerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: [true, 'Vui lòng cung cấp ID khách hàng']
+  },
+  
   roomId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Room',
-    required: [true, 'Room ID is required']
+    required: [true, 'Vui lòng cung cấp ID phòng']
   },
-  checkInDate: { // Mốc thời gian khách bắt đầu nhận phòng
+
+  // ==========================================
+  // 3. THÔNG TIN ĐẶT PHÒNG
+  // ==========================================
+  
+  checkInDate: {
     type: Date,
-    required: [true, 'Check-in date is required']
+    required: [true, 'Vui lòng cung cấp ngày nhận phòng']
   },
-  checkOutDate: { // Mốc thời gian khách trả phòng
+  
+  checkOutDate: {
     type: Date,
-    required: [true, 'Check-out date is required']
+    required: [true, 'Vui lòng cung cấp ngày trả phòng']
   },
-  totalAmount: { // Tổng tiền
+  
+  totalAmount: {
     type: Number,
-    required: [true, 'Total amount is required'],
-    min: [0, 'Total amount must be greater than 0']
+    required: true,
+    min: [0, 'Tổng tiền không thể là số âm']
   },
-  status: { // Trạng thái đơn đặt
+  
+  guestCount: {
+    type: Number,
+    required: [true, 'Vui lòng cung cấp số lượng khách'],
+    min: [1, 'Số lượng khách phải ít nhất là 1'],
+    max: [10, 'Số lượng khách không được quá 10']
+  },
+  
+  specialRequests: {
     type: String,
-    enum: ['Pending', 'Confirmed', 'Cancelled', 'CheckedIn', 'CheckedOut'],
-    default: 'Pending'
+    maxlength: [500, 'Yêu cầu đặc biệt không được vượt quá 500 ký tự'],
+    default: ''
   },
-  paymentStatus: { // Trạng thái thanh toán
+
+  // ==========================================
+  // 4. TRẠNG THÁI
+  // ==========================================
+  
+  status: {
     type: String,
-    enum: ['Unpaid', 'Paid'],
-    default: 'Unpaid'
+    enum: ['Pending', 'Confirmed', 'CheckedIn', 'CheckedOut', 'Cancelled'],
+    default: 'Pending',
+    index: true
   },
+  
+  paymentStatus: {
+    type: String,
+    enum: ['Unpaid', 'Paid', 'Refunded'],
+    default: 'Unpaid',
+    index: true
+  },
+
+  // ==========================================
+  // 5. THỜI GIAN THỰC TẾ
+  // ==========================================
+  
+  cancelledAt: {
+    type: Date,
+    default: null
+  },
+  
+  cancelledReason: {
+    type: String,
+    maxlength: [500, 'Lý do hủy không được vượt quá 500 ký tự'],
+    default: ''
+  },
+  
+  checkedInAt: {
+    type: Date,
+    default: null
+  },
+  
+  checkedOutAt: {
+    type: Date,
+    default: null
+  },
+
+  // ==========================================
+  // 6. THÔNG TIN LIÊN HỆ (Lưu snapshot)
+  // ==========================================
+  
+  customerName: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  
+  customerEmail: {
+    type: String,
+    required: true,
+    lowercase: true,
+    trim: true
+  },
+  
+  customerPhone: {
+    type: String,
+    required: true,
+    trim: true
+  },
+
+  // ==========================================
+  // 7. THỜI GIAN TẠO
+  // ==========================================
+  
   createdAt: {
     type: Date,
     default: Date.now
@@ -43,15 +160,132 @@ const bookingSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Logic Đánh Chặn Bảo Vệ Dữ Liệu (Hàm pre-save)
-// Trước khi một đơn đặt phòng được lưu xuống database, hàm này sẽ tự động chạy để kiểm tra logic thời gian
-// Một người không thể trả phòng (checkOutDate) trước hoặc cùng ngày với ngày nhận phòng (checkInDate). Nếu người dùng cố tình hoặc vô ý chọn ngày trả phòng là ngày hôm qua, đoạn code này sẽ ngay lập tức chặn đứng lại, ném ra một lỗi (Error) và không cho phép lưu đơn hàng lỗi đó vào database
-bookingSchema.pre('save', function(next) {
-  if (this.checkInDate >= this.checkOutDate) {
-    next(new Error('Check-out date must be after check-in date'));
+// ==========================================
+// 8. INDEXES (Tối ưu truy vấn)
+// ==========================================
+
+bookingSchema.index({ customerId: 1, status: 1 });
+bookingSchema.index({ roomId: 1, checkInDate: 1, checkOutDate: 1 });
+bookingSchema.index({ status: 1, createdAt: -1 });
+
+// ==========================================
+// 9. VIRTUAL PROPERTIES
+// ==========================================
+
+/**
+ * Virtual: Số đêm ở
+ */
+bookingSchema.virtual('nightCount').get(function() {
+  if (this.checkInDate && this.checkOutDate) {
+    const diffTime = this.checkOutDate - this.checkInDate;
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   }
-  next();
+  return 0;
 });
 
+/**
+ * Virtual: Phòng đã được check-in chưa
+ */
+bookingSchema.virtual('isCheckedIn').get(function() {
+  return this.status === 'CheckedIn';
+});
+
+/**
+ * Virtual: Có thể hủy không
+ */
+bookingSchema.virtual('canCancel').get(function() {
+  const cancellableStatuses = ['Pending', 'Confirmed'];
+  return cancellableStatuses.includes(this.status) && this.paymentStatus !== 'Paid';
+});
+
+// ==========================================
+// 10. METHODS
+// ==========================================
+
+/**
+ * Cập nhật trạng thái đơn đặt
+ */
+bookingSchema.methods.updateStatus = async function(newStatus) {
+  const validStatuses = ['Pending', 'Confirmed', 'CheckedIn', 'CheckedOut', 'Cancelled'];
+  if (!validStatuses.includes(newStatus)) {
+    throw new Error(`Trạng thái không hợp lệ: ${newStatus}`);
+  }
+
+  // Cập nhật thời gian tương ứng
+  if (newStatus === 'CheckedIn') {
+    this.checkedInAt = new Date();
+  }
+  if (newStatus === 'CheckedOut') {
+    this.checkedOutAt = new Date();
+  }
+  if (newStatus === 'Cancelled') {
+    this.cancelledAt = new Date();
+  }
+
+  this.status = newStatus;
+  return await this.save();
+};
+
+/**
+ * Hủy đơn đặt
+ */
+bookingSchema.methods.cancel = async function(reason = '') {
+  if (!this.canCancel) {
+    throw new Error('Không thể hủy đơn đặt này');
+  }
+  this.cancelledReason = reason || 'Khách hàng hủy đơn';
+  return await this.updateStatus('Cancelled');
+};
+
+// ==========================================
+// 11. STATIC METHODS
+// ==========================================
+
+/**
+ * Lấy danh sách booking của một user
+ */
+bookingSchema.statics.getUserBookings = function(userId, filters = {}) {
+  const query = { customerId: userId };
+  if (filters.status) query.status = filters.status;
+  
+  return this.find(query)
+    .populate('roomId', 'roomNumber type pricePerNight images')
+    .sort({ createdAt: -1 });
+};
+
+/**
+ * Kiểm tra phòng có bị trùng ngày không
+ */
+bookingSchema.statics.isRoomAvailable = async function(roomId, checkIn, checkOut) {
+  const conflictingBooking = await this.findOne({
+    roomId,
+    status: { $in: ['Pending', 'Confirmed', 'CheckedIn'] },
+    $or: [
+      { checkInDate: { $lt: checkOut, $gte: checkIn } },
+      { checkOutDate: { $gt: checkIn, $lte: checkOut } },
+      { checkInDate: { $lte: checkIn }, checkOutDate: { $gte: checkOut } }
+    ]
+  });
+  return !conflictingBooking;
+};
+
+/**
+ * Tạo mã đặt phòng tự động
+ */
+bookingSchema.statics.generateBookingCode = function() {
+  const now = new Date();
+  const dateStr = now.getFullYear().toString() +
+    String(now.getMonth() + 1).padStart(2, '0') +
+    String(now.getDate()).padStart(2, '0');
+  
+  // Tạo chuỗi ngẫu nhiên 4 ký tự
+  const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase();
+  
+  return `BK-${dateStr}-${randomStr}`;
+};
+
+// ==========================================
+// 12. EXPORT
+// ==========================================
+
 module.exports = mongoose.model('Booking', bookingSchema);
-// Cả 3 "bảng dữ liệu" cốt lõi của hệ thống: User (Ai đặt) ➔ Room (Đặt phòng nào) ➔ Booking (Đặt khi nào, bao nhiêu tiền)
