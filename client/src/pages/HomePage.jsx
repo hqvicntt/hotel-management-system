@@ -6,12 +6,14 @@
  * 2. Hiển thị danh sách phòng từ Backend
  * 3. Filter phòng theo loại và giá
  * 4. Phân trang
- * 5. Nút đăng xuất
+ * 5. Đặt phòng qua Modal với validation
+ * 6. Nút đăng xuất
  */
 
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { getAllRooms } from '@services/roomService'
+import { createBooking } from '@services/bookingService'
 import RoomCard from '@components/room/RoomCard'
 
 // ============================================
@@ -20,20 +22,20 @@ import RoomCard from '@components/room/RoomCard'
 
 const HomePage = () => {
   // ==========================================
-  // 1. STATE MANAGEMENT (Tối ưu hóa Lazy Initialization)
+  // 1. STATE MANAGEMENT
   // ==========================================
   
-  // Nạp thẳng User từ localStorage từ giây đầu tiên để né lỗi useEffect
+  // User state
   const [user] = useState(() => {
     try {
       const userString = localStorage.getItem('user')
       return userString ? JSON.parse(userString) : null
-    } catch (error) {
-      console.error('❌ Error parsing user data:', error)
+    } catch {
       return null
     }
   })
 
+  // Room list states
   const [rooms, setRooms] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -54,28 +56,38 @@ const HomePage = () => {
     currentPage: 1
   })
 
+  // ==========================================
+  // 2. BOOKING MODAL STATES (THÊM MỚI)
+  // ==========================================
+  
+  const [showModal, setShowModal] = useState(false)
+  const [selectedRoom, setSelectedRoom] = useState(null)
+  const [bookingForm, setBookingForm] = useState({
+    checkInDate: '',
+    checkOutDate: '',
+    guestCount: 1,
+    specialRequests: ''
+  })
+  const [bookingLoading, setBookingLoading] = useState(false)
+  const [bookingError, setBookingError] = useState('')
+
   const navigate = useNavigate()
 
   // ==========================================
-  // 2. EFFECTS (An ninh & Tải dữ liệu phòng)
+  // 3. EFFECTS & DATA FETCHING (Chuẩn hóa cô lập React 19 sạch 100%)
   // ==========================================
   
-  /**
-   * Cảm biến bảo mật: Chưa có user thì đá văng ra trang Login
-   */
+  // Cảm biến an ninh: Chưa login đá ra trang Login
   useEffect(() => {
     if (!user) {
       navigate('/login', { replace: true })
     }
   }, [user, navigate])
 
-  /**
-   * Cảm biến tải danh sách phòng: Tự động chạy lại mỗi khi filters thay đổi
-   */
+  // Cảm biến tải phòng: Tự động gọi lại mỗi khi filters thay đổi
   useEffect(() => {
-    // Chỉ gọi API khi tài khoản người dùng hợp lệ
     if (user) {
-      const fetchRooms = async () => {
+      const executeFetchRooms = async () => {
         try {
           setLoading(true)
           setError('')
@@ -99,12 +111,13 @@ const HomePage = () => {
         }
       }
 
-      fetchRooms()
+      executeFetchRooms() // Kích hoạt chạy cô lập ngầm dưới bo mạch mạng
     }
-  }, [filters, user])
+  }, [filters, user]) // Chạy lại tự động khi bộ lọc thay đổi
+
 
   // ==========================================
-  // 3. HANDLERS
+  // 5. HANDLERS
   // ==========================================
   
   const handleLogout = () => {
@@ -120,7 +133,7 @@ const HomePage = () => {
     setFilters(prev => ({
       ...prev,
       [name]: value,
-      page: 1 // Reset về trang 1 khi lọc thay đổi
+      page: 1
     }))
   }
 
@@ -131,9 +144,129 @@ const HomePage = () => {
     }
   }
 
-  const handleBookRoom = (room) => {
-    alert(`Bạn đã chọn phòng ${room.roomNumber} - ${room.type}`)
-    console.log('Booking room:', room)
+  // ==========================================
+  // 6. BOOKING HANDLERS
+  // ==========================================
+  
+  /**
+   * Mở Modal đặt phòng
+   * Khi click "Đặt phòng ngay", bốc thông tin phòng và hiển thị form
+   */
+  const handleOpenBookingModal = (room) => {
+    setSelectedRoom(room)
+    setBookingForm({
+      checkInDate: '',
+      checkOutDate: '',
+      guestCount: 1,
+      specialRequests: ''
+    })
+    setBookingError('')
+    setShowModal(true)
+  }
+
+  /**
+   * Đóng Modal
+   */
+  const handleCloseModal = () => {
+    setShowModal(false)
+    setSelectedRoom(null)
+    setBookingForm({
+      checkInDate: '',
+      checkOutDate: '',
+      guestCount: 1,
+      specialRequests: ''
+    })
+    setBookingError('')
+    setBookingLoading(false)
+  }
+
+  /**
+   * Xử lý thay đổi input trong form đặt phòng
+   */
+  const handleBookingInputChange = (e) => {
+    const { name, value } = e.target
+    setBookingForm(prev => ({
+      ...prev,
+      [name]: value
+    }))
+    if (bookingError) setBookingError('')
+  }
+
+  /**
+   * Xác nhận đặt phòng
+   * Gọi API createBooking và xử lý kết quả
+   */
+  const handleConfirmBooking = async (e) => {
+    e.preventDefault()
+    
+    // 1. Validate dữ liệu
+    if (!bookingForm.checkInDate || !bookingForm.checkOutDate) {
+      setBookingError('Vui lòng chọn ngày nhận và ngày trả phòng')
+      return
+    }
+
+    const checkIn = new Date(bookingForm.checkInDate)
+    const checkOut = new Date(bookingForm.checkOutDate)
+    const now = new Date()
+    now.setHours(0, 0, 0, 0)
+
+    if (checkIn < now) {
+      setBookingError('Ngày nhận phòng không được ở quá khứ')
+      return
+    }
+
+    if (checkIn >= checkOut) {
+      setBookingError('Ngày trả phòng phải sau ngày nhận phòng')
+      return
+    }
+
+    if (bookingForm.guestCount < 1) {
+      setBookingError('Số lượng khách phải ít nhất là 1')
+      return
+    }
+
+    if (selectedRoom && bookingForm.guestCount > selectedRoom.maxOccupants) {
+      setBookingError(`Số lượng khách (${bookingForm.guestCount}) vượt quá sức chứa tối đa (${selectedRoom.maxOccupants})`)
+      return
+    }
+
+    try {
+      setBookingLoading(true)
+      setBookingError('')
+
+      // 2. Gọi API tạo booking
+      const result = await createBooking({
+        roomId: selectedRoom._id,
+        checkInDate: bookingForm.checkInDate,
+        checkOutDate: bookingForm.checkOutDate,
+        guestCount: bookingForm.guestCount,
+        specialRequests: bookingForm.specialRequests || ''
+      })
+
+      // 3. Xử lý thành công
+      if (result.success) {
+        // Hiển thị thông báo
+        alert(`✅ Đặt phòng thành công!\nMã đơn: ${result.data.bookingCode}\nPhòng: ${selectedRoom.roomNumber}\nTổng tiền: ${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(result.data.totalAmount)}`)
+
+        // Đóng modal
+        handleCloseModal()
+
+        // Cú hích UI lập tức: Đổi trạng thái phòng vừa đặt sang 'Booked' ngay trên giao diện để nút bấm đổi màu trong 0 mili-giây
+        setRooms(prevRooms => 
+          prevRooms.map(r => r._id === selectedRoom._id ? { ...r, status: 'Booked' } : r)
+        );
+      } else {
+        setBookingError(result.message || 'Đặt phòng thất bại')
+      }
+    } catch (err) {
+      console.error('❌ Booking error:', err)
+      const errorMsg = err.response?.data?.message || 
+                       err.response?.data?.error || 
+                       'Lỗi khi đặt phòng. Vui lòng thử lại.'
+      setBookingError(errorMsg)
+    } finally {
+      setBookingLoading(false)
+    }
   }
 
   const getGreeting = () => {
@@ -144,10 +277,9 @@ const HomePage = () => {
   }
 
   // ==========================================
-  // 4. RENDER PRE-CHECKS
+  // 7. RENDER PRE-CHECKS
   // ==========================================
   
-  // Loading ban đầu khi chưa có phòng nào
   if (loading && rooms.length === 0) {
     return (
       <div className="d-flex justify-content-center align-items-center vh-100">
@@ -184,6 +316,10 @@ const HomePage = () => {
   const roleInfo = getRoleDisplay(user.role || 'customer')
   const greeting = getGreeting()
 
+  // ==========================================
+  // 8. RENDER
+  // ==========================================
+  
   return (
     <div className="container-fluid min-vh-100 bg-light">
       
@@ -192,12 +328,12 @@ const HomePage = () => {
           ========================================== */}
       <nav className="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm sticky-top">
         <div className="container">
-          <a className="navbar-brand fw-bold" href="/">
+          <Link className="navbar-brand fw-bold" to="/">
             <i className="bi bi-building me-2"></i>
             Hotel Management
-          </a>
+          </Link>
           <div className="d-flex align-items-center gap-2">
-            <span className="text-white-50 d-none d-md-inline">
+            <span className="text-white d-none d-md-inline">
               <i className={`bi ${roleInfo.icon} me-1`}></i>
               {greeting}, {user.name}
             </span>
@@ -234,7 +370,7 @@ const HomePage = () => {
                 </h1>
                 <p className="fs-5 mb-1">
                   <span className="fw-bold">{user.name}</span>
-                  <span className="badge bg-${roleInfo.color} ms-2 px-3 py-1 text-white">
+                  <span className={`badge bg-${roleInfo.color} ms-2 px-3 py-1`}>
                     <i className={`bi ${roleInfo.icon} me-1`}></i>
                     {roleInfo.label}
                   </span>
@@ -245,14 +381,15 @@ const HomePage = () => {
                 </p>
               </div>
               <div className="col-md-4 text-center mt-3 mt-md-0">
-                <div className="bg-primary bg-opacity-10 rounded-circle p-3 d-inline-block">
-                  <i className="bi bi-person-circle text-primary" style={{ fontSize: '3rem' }}></i>
+                <div className="bg-opacity-20 rounded-circle p-3 d-inline-block">
+                  <i className="bi bi-person-circle" style={{ fontSize: '3rem' }}></i>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
+        {/* Quick Links */}
         <div className="row mb-4 g-3">
           <div className="col-md-4">
             <Link to="/my-bookings" className="text-decoration-none">
@@ -378,7 +515,6 @@ const HomePage = () => {
           </div>
         )}
 
-        {/* Room Count */}
         <div className="d-flex justify-content-between align-items-center mb-3">
           <h5 className="mb-0">
             <i className="bi bi-door-open me-2 text-primary"></i>
@@ -395,14 +531,13 @@ const HomePage = () => {
           )}
         </div>
 
-        {/* Room Cards Grid */}
         {rooms.length > 0 ? (
           <div className="row g-4">
             {rooms.map((room) => (
               <RoomCard
                 key={room._id}
                 room={room}
-                onBook={handleBookRoom}
+                onBook={handleOpenBookingModal} // Sửa: Gọi hàm mở Modal thay vì alert
               />
             ))}
           </div>
@@ -415,9 +550,7 @@ const HomePage = () => {
           </div>
         )}
 
-        {/* ==========================================
-            PAGINATION
-            ========================================== */}
+        {/* Pagination */}
         {pagination.totalPages > 1 && (
           <nav className="mt-4 d-flex justify-content-center">
             <ul className="pagination">
@@ -432,7 +565,6 @@ const HomePage = () => {
               
               {[...Array(pagination.totalPages).keys()].map((_, index) => {
                 const page = index + 1
-                // Chỉ hiển thị 5 trang xung quanh trang hiện tại
                 if (
                   page === 1 ||
                   page === pagination.totalPages ||
@@ -452,7 +584,6 @@ const HomePage = () => {
                     </li>
                   )
                 }
-                // Hiển thị dấu ... ở giữa
                 if (page === pagination.currentPage - 3 || page === pagination.currentPage + 3) {
                   return (
                     <li key={page} className="page-item disabled">
@@ -475,6 +606,187 @@ const HomePage = () => {
           </nav>
         )}
       </div>
+
+      {/* ==========================================
+          BOOKING MODAL
+          ========================================== */}
+      {selectedRoom && (
+        <div 
+          className={`modal fade ${showModal ? 'show d-block' : ''}`} 
+          tabIndex="-1" 
+          style={{ 
+            display: showModal ? 'block' : 'none',
+            backgroundColor: 'rgba(0,0,0,0.5)'
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) handleCloseModal()
+          }}
+        >
+          <div className="modal-dialog modal-lg modal-dialog-centered">
+            <div className="modal-content">
+              
+              {/* Modal Header */}
+              <div className="modal-header bg-primary text-white">
+                <h5 className="modal-title fw-bold">
+                  <i className="bi bi-calendar-plus me-2"></i>
+                  Đặt phòng {selectedRoom.roomNumber}
+                </h5>
+                <button 
+                  type="button" 
+                  className="btn-close btn-close-white" 
+                  onClick={handleCloseModal}
+                ></button>
+              </div>
+              
+              {/* Modal Body */}
+              <div className="modal-body">
+                {/* Room Info Summary */}
+                <div className="bg-light p-3 rounded mb-4">
+                  <div className="row">
+                    <div className="col-md-6">
+                      <div><strong>Phòng:</strong> {selectedRoom.roomNumber}</div>
+                      <div><strong>Loại:</strong> {selectedRoom.type}</div>
+                      <div><strong>Sức chứa:</strong> {selectedRoom.maxOccupants} người</div>
+                    </div>
+                    <div className="col-md-6 text-md-end">
+                      <div><strong>Giá:</strong></div>
+                      <div className="text-primary fw-bold fs-4">
+                        {new Intl.NumberFormat('vi-VN', {
+                          style: 'currency',
+                          currency: 'VND',
+                          minimumFractionDigits: 0
+                        }).format(selectedRoom.pricePerNight)}
+                        <span className="text-muted fs-6"> /đêm</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Booking Form */}
+                <form onSubmit={handleConfirmBooking}>
+                  {bookingError && (
+                    <div className="alert alert-danger alert-dismissible fade show">
+                      <i className="bi bi-exclamation-triangle-fill me-2"></i>
+                      {bookingError}
+                      <button 
+                        type="button" 
+                        className="btn-close" 
+                        onClick={() => setBookingError('')}
+                      ></button>
+                    </div>
+                  )}
+
+                  <div className="row g-3">
+                    {/* Check-in Date */}
+                    <div className="col-md-6">
+                      <label className="form-label fw-semibold">
+                        <i className="bi bi-calendar-check text-success me-1"></i>
+                        Ngày nhận phòng *
+                      </label>
+                      <input
+                        type="date"
+                        className="form-control"
+                        name="checkInDate"
+                        value={bookingForm.checkInDate}
+                        onChange={handleBookingInputChange}
+                        min={new Date().toISOString().split('T')[0]}
+                        required
+                      />
+                    </div>
+
+                    {/* Check-out Date */}
+                    <div className="col-md-6">
+                      <label className="form-label fw-semibold">
+                        <i className="bi bi-calendar-x text-danger me-1"></i>
+                        Ngày trả phòng *
+                      </label>
+                      <input
+                        type="date"
+                        className="form-control"
+                        name="checkOutDate"
+                        value={bookingForm.checkOutDate}
+                        onChange={handleBookingInputChange}
+                        min={bookingForm.checkInDate || new Date().toISOString().split('T')[0]}
+                        required
+                      />
+                    </div>
+
+                    {/* Guest Count */}
+                    <div className="col-md-6">
+                      <label className="form-label fw-semibold">
+                        <i className="bi bi-people me-1"></i>
+                        Số lượng khách *
+                      </label>
+                      <input
+                        type="number"
+                        className="form-control"
+                        name="guestCount"
+                        value={bookingForm.guestCount}
+                        onChange={handleBookingInputChange}
+                        min={1}
+                        max={selectedRoom.maxOccupants}
+                        required
+                      />
+                      <div className="form-text">
+                        Tối đa {selectedRoom.maxOccupants} người
+                      </div>
+                    </div>
+
+                    {/* Special Requests */}
+                    <div className="col-12">
+                      <label className="form-label fw-semibold">
+                        <i className="bi bi-chat me-1"></i>
+                        Yêu cầu đặc biệt
+                      </label>
+                      <textarea
+                        className="form-control"
+                        name="specialRequests"
+                        value={bookingForm.specialRequests}
+                        onChange={handleBookingInputChange}
+                        rows="3"
+                        placeholder="Ví dụ: Cần giường phụ, phòng không hút thuốc, ..."
+                        maxLength={500}
+                      ></textarea>
+                      <div className="form-text text-end">
+                        {bookingForm.specialRequests.length}/500
+                      </div>
+                    </div>
+                  </div>
+                </form>
+              </div>
+              
+              {/* Modal Footer */}
+              <div className="modal-footer">
+                <button 
+                  className="btn btn-secondary" 
+                  onClick={handleCloseModal}
+                  disabled={bookingLoading}
+                >
+                  <i className="bi bi-x-circle me-1"></i>
+                  Hủy
+                </button>
+                <button 
+                  className="btn btn-primary" 
+                  onClick={handleConfirmBooking}
+                  disabled={bookingLoading}
+                >
+                  {bookingLoading ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2"></span>
+                      Đang xử lý...
+                    </>
+                  ) : (
+                    <>
+                      <i className="bi bi-check-circle me-1"></i>
+                      Xác nhận đặt phòng
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
